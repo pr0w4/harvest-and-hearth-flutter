@@ -93,45 +93,42 @@ class _RecipesScreenState extends State<RecipesScreen>
               ),
               child: TabBar(
                 controller: _tabController,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelPadding: EdgeInsets.zero,
+                labelStyle: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
                 indicator: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   color: cs.primary.withAlpha(28),
                   border: Border.all(color: cs.primary.withAlpha(115)),
                 ),
                 tabs: [
-                  SizedBox(
+                  Tab(
                     height: 54,
-                    child: Tab(
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      text: t('recipes_all'),
-                    ),
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    text: t('recipes_all'),
                   ),
-                  SizedBox(
+                  Tab(
                     height: 54,
-                    child: Tab(
-                      icon:
-                          const Icon(Icons.bookmark_outline_rounded, size: 18),
-                      text: t('recipes_saved'),
-                    ),
+                    icon: const Icon(Icons.bookmark_outline_rounded, size: 18),
+                    text: t('recipes_saved'),
                   ),
-                  SizedBox(
+                  Tab(
                     height: 54,
-                    child: Tab(
-                      icon: const Icon(Icons.explore_outlined, size: 18),
-                      text: t('explore_title'),
-                    ),
+                    icon: const Icon(Icons.explore_outlined, size: 18),
+                    text: t('explore_title'),
                   ),
-                  SizedBox(
+                  Tab(
                     height: 54,
-                    child: Tab(
-                      icon: const Icon(Icons.edit_note_rounded, size: 18),
-                      text: t('recipes_custom'),
-                    ),
+                    icon: const Icon(Icons.edit_note_rounded, size: 18),
+                    text: t('recipes_custom'),
                   ),
                 ],
               ),

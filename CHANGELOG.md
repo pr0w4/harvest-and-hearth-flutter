@@ -6,6 +6,19 @@ Tất cả thay đổi đáng chú ý của dự án **Harvest & Hearth Flutter*
 
 ---
 
+## [b0.4.17.1] — 2026-06-22
+
+### UI Fix
+
+- Sửa **TabBar điều hướng Recipes** bị dồn sang trái: bỏ chế độ scroll, chia đều 4 tab full width như layout gốc.
+
+### Build
+
+- Bump version Android: **`1.0.29+30`** (`versionName` **1.0.29**, `versionCode` **30**).
+- APK release: `harvestnhearth-b0.4.17.1.apk`.
+
+---
+
 ## [b0.4.17] — 2026-06-22
 
 ### Custom Recipes (Công thức của tôi)
