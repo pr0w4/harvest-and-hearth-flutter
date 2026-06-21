@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../core/simulated_clock.dart';
 import '../models/chat_message.dart';
+import '../models/daily_meal_plan.dart';
 import '../models/food_item.dart';
 import '../models/planned_meal_entry.dart';
 import '../models/recipe.dart';
@@ -42,12 +43,26 @@ class _ChatCacheEntry {
   });
 }
 
+class AddPurchasedToInventoryResult {
+  const AddPurchasedToInventoryResult({
+    required this.addedCount,
+    required this.aiClassifiedCount,
+    required this.fallbackClassifiedCount,
+  });
+
+  final int addedCount;
+  final int aiClassifiedCount;
+  final int fallbackClassifiedCount;
+}
+
 class AppProvider extends ChangeNotifier {
   // ── State ──────────────────────────────────────────────────────────────────
   AppUser? _user;
   List<FoodItem> _inventory = [];
   List<Recipe> _savedRecipes = [];
   List<Recipe> _recipeCache = [];
+  List<Recipe> _customRecipes = [];
+  bool _isCustomRecipesLoading = false;
   String _language = 'VIE';
   bool _isDark = false;
   bool _isInitialized = false;
@@ -59,6 +74,7 @@ class AppProvider extends ChangeNotifier {
   Map<String, int> _defaultExpiryDaysByCategory = {};
   List<ShoppingPlanItem> _shoppingPlanItems = [];
   List<PlannedMealEntry> _plannedMeals = [];
+  List<DailyMealPlan> _dailyMealPlans = [];
   String _shoppingPlanPeriod = 'day';
   DateTime? _shoppingPlanSavedAt;
 
@@ -76,6 +92,8 @@ class AppProvider extends ChangeNotifier {
   bool get isLoadingUser => _isLoadingUser;
   List<FoodItem> get inventory => List.unmodifiable(_inventory);
   List<Recipe> get savedRecipes => List.unmodifiable(_savedRecipes);
+  List<Recipe> get customRecipes => List.unmodifiable(_customRecipes);
+  bool get isCustomRecipesLoading => _isCustomRecipesLoading;
   List<Recipe> get recipeCache => List.unmodifiable(_recipeCache);
   String get language => _language;
   bool get isDark => _isDark;
@@ -89,6 +107,7 @@ class AppProvider extends ChangeNotifier {
   List<ShoppingPlanItem> get shoppingPlanItems =>
       List.unmodifiable(_shoppingPlanItems);
   List<PlannedMealEntry> get plannedMeals => List.unmodifiable(_plannedMeals);
+  List<DailyMealPlan> get dailyMealPlans => List.unmodifiable(_dailyMealPlans);
   List<PlannedMealEntry> get plannedMealsForActivePeriod => _plannedMeals
       .where((e) => e.period == _shoppingPlanPeriod)
       .toList(growable: false);
@@ -97,6 +116,7 @@ class AppProvider extends ChangeNotifier {
   int get shoppingPurchasedCount =>
       _shoppingPlanItems.where((e) => e.isPurchased).length;
   int get shoppingTotalCount => _shoppingPlanItems.length;
+  int get dailyMealPlanCount => _dailyMealPlans.length;
   bool get isDemoMode =>
       (dotenv.maybeGet('DEMO_MODE') ?? 'false').toLowerCase() == 'true';
 
@@ -123,6 +143,38 @@ class AppProvider extends ChangeNotifier {
   }
 
   String t(String key) => Translations.get(key, _language);
+
+  List<DailyMealPlan> dailyPlansForDate(DateTime date) {
+    final key = mealDateKey(date);
+    final order = <String, int>{
+      'breakfast': 0,
+      'lunch': 1,
+      'dinner': 2,
+    };
+    final out = _dailyMealPlans.where((e) => e.dateKey == key).toList();
+    out.sort(
+        (a, b) => (order[a.mealSlot] ?? 99).compareTo(order[b.mealSlot] ?? 99));
+    return out;
+  }
+
+  Map<String, List<DailyMealPlan>> get dailyPlansByDate {
+    final map = <String, List<DailyMealPlan>>{};
+    for (final e in _dailyMealPlans) {
+      map.putIfAbsent(e.dateKey, () => <DailyMealPlan>[]).add(e);
+    }
+    return map;
+  }
+
+  List<DailyMealPlan> dailyPlansInRange(DateTime start, DateTime end) {
+    final s = DateTime(start.year, start.month, start.day);
+    final e = DateTime(end.year, end.month, end.day);
+    return _dailyMealPlans.where((plan) {
+      final d = DateTime.tryParse(plan.dateKey);
+      if (d == null) return false;
+      final k = DateTime(d.year, d.month, d.day);
+      return !k.isBefore(s) && !k.isAfter(e);
+    }).toList(growable: false);
+  }
 
   // ── Init ───────────────────────────────────────────────────────────────────
   Future<void> init() async {
@@ -162,6 +214,17 @@ class AppProvider extends ChangeNotifier {
             .toList();
       } catch (_) {
         _plannedMeals = [];
+      }
+    }
+    final rawDailyPlans = prefs.getString('daily_meal_plans');
+    if (rawDailyPlans != null && rawDailyPlans.trim().isNotEmpty) {
+      try {
+        final parsed = jsonDecode(rawDailyPlans) as List<dynamic>;
+        _dailyMealPlans = parsed
+            .map((e) => DailyMealPlan.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      } catch (_) {
+        _dailyMealPlans = [];
       }
     }
     _shoppingPlanPeriod = prefs.getString('shopping_plan_period') ?? 'day';
@@ -240,6 +303,8 @@ class AppProvider extends ChangeNotifier {
     _inventory = [];
     _savedRecipes = [];
     _recipeCache = [];
+    _customRecipes = [];
+    _isCustomRecipesLoading = false;
     _boundUserId = null;
     _isLoadingUser = false;
     _chatMessages = [];
@@ -250,6 +315,7 @@ class AppProvider extends ChangeNotifier {
     _isLoadingNotifications = false;
     _shoppingPlanItems = [];
     _plannedMeals = [];
+    _dailyMealPlans = [];
     _shoppingPlanPeriod = 'day';
     _shoppingPlanSavedAt = null;
     GroqChatService.instance.clearHistory();
@@ -333,6 +399,7 @@ class AppProvider extends ChangeNotifier {
 
     _savedRecipes = _parseSavedRecipeRows(recipeRows);
     _notificationLogs = notificationRows;
+    await loadCustomRecipes(silent: true);
     _scheduleAlerts();
   }
 
@@ -500,7 +567,8 @@ class AppProvider extends ChangeNotifier {
           (availableByCategory[item.category] ?? 0) + normalizedQty;
     }
 
-    final targets = <FoodCategory, ({double qty, String itemName, String unit})>{
+    final targets =
+        <FoodCategory, ({double qty, String itemName, String unit})>{
       FoodCategory.vegetables: (
         qty: 4 * factor,
         itemName: _language == 'ENG' ? 'Vegetables mix' : 'Rau củ tổng hợp',
@@ -631,17 +699,139 @@ class AppProvider extends ChangeNotifier {
     await _persistShoppingPlan();
   }
 
-  Future<void> addPurchasedItemsToInventory() async {
+  Future<void> generateShoppingFromDailyMealPlans({
+    required DateTime anchorDate,
+    required bool weekly,
+    bool deductInventory = false,
+  }) async {
+    _shoppingPlanPeriod = weekly ? 'week' : 'day';
+    final start = weekly
+        ? DateTime(anchorDate.year, anchorDate.month, anchorDate.day)
+            .subtract(Duration(days: anchorDate.weekday - 1))
+        : DateTime(anchorDate.year, anchorDate.month, anchorDate.day);
+    final end = weekly ? start.add(const Duration(days: 6)) : start;
+    final active = dailyPlansInRange(start, end);
+    if (active.isEmpty) {
+      _shoppingPlanItems = [];
+      _shoppingPlanSavedAt = null;
+      notifyListeners();
+      await _persistShoppingPlan();
+      return;
+    }
+
+    final totals = <String, double>{};
+    final unitByName = <String, String>{};
+    final mealRefs = <String, Set<String>>{};
+
+    for (final meal in active) {
+      for (final raw in meal.ingredients) {
+        final parsed = _parseIngredientForShopping(raw);
+        if (parsed.name.isEmpty) continue;
+        totals[parsed.name] = (totals[parsed.name] ?? 0) + parsed.qty;
+        unitByName.putIfAbsent(parsed.name, () => parsed.unit);
+        final dateLabel = meal.dateKey;
+        final mealLabel = '${meal.recipeName} ($dateLabel)';
+        mealRefs.putIfAbsent(parsed.name, () => <String>{}).add(mealLabel);
+      }
+    }
+
+    if (deductInventory) {
+      final inventoryTotals = <String, ({double qty, String unit})>{};
+      for (final item in _inventory) {
+        if (item.isExpired) continue;
+        final key = item.name.toLowerCase().trim();
+        final current = inventoryTotals[key];
+        if (current == null) {
+          inventoryTotals[key] = (qty: item.quantity, unit: item.unit.toLowerCase().trim());
+        } else {
+          if (current.unit == item.unit.toLowerCase().trim()) {
+            inventoryTotals[key] = (qty: current.qty + item.quantity, unit: current.unit);
+          } else {
+            final converted = _convertQuantity(item.quantity, item.unit, current.unit);
+            inventoryTotals[key] = (qty: current.qty + converted, unit: current.unit);
+          }
+        }
+      }
+
+      final keys = totals.keys.toList();
+      for (final name in keys) {
+        final neededQty = totals[name]!;
+        final neededUnit = unitByName[name]!;
+        final invKey = name.toLowerCase().trim();
+
+        var invItem = inventoryTotals[invKey];
+
+        if (invItem == null) {
+          final matchKey = inventoryTotals.keys.firstWhere(
+            (k) => k.contains(invKey) || invKey.contains(k),
+            orElse: () => '',
+          );
+          if (matchKey.isNotEmpty) {
+            invItem = inventoryTotals[matchKey];
+          }
+        }
+
+        if (invItem != null) {
+          final availableConverted = _convertQuantity(invItem.qty, invItem.unit, neededUnit);
+          final remainingNeeded = neededQty - availableConverted;
+          if (remainingNeeded <= 0) {
+            totals[name] = 0;
+          } else {
+            totals[name] = remainingNeeded;
+          }
+        }
+      }
+      totals.removeWhere((key, val) => val <= 0);
+    }
+
+    _shoppingPlanItems = totals.entries
+        .map(
+          (e) => ShoppingPlanItem(
+            id: _uuid.v4(),
+            name: e.key,
+            unit:
+                unitByName[e.key] ?? (_language == 'ENG' ? 'portion' : 'phần'),
+            requiredQty: _roundQty(e.value),
+            confirmedQty: _roundQty(e.value),
+            isPurchased: false,
+            planMealRefs:
+                (mealRefs[e.key] ?? const <String>{}).take(3).toList(),
+          ),
+        )
+        .toList(growable: false);
+    _shoppingPlanSavedAt = DateTime.now();
+    notifyListeners();
+    await _persistShoppingPlan();
+  }
+
+  Future<AddPurchasedToInventoryResult> addPurchasedItemsToInventory({
+    bool useHearthieClassification = true,
+  }) async {
     final purchased = _shoppingPlanItems
         .where((e) => e.isPurchased && e.confirmedQty > 0)
         .toList(growable: false);
-    if (purchased.isEmpty) return;
+    if (purchased.isEmpty) {
+      return const AddPurchasedToInventoryResult(
+        addedCount: 0,
+        aiClassifiedCount: 0,
+        fallbackClassifiedCount: 0,
+      );
+    }
 
     final now = SimulatedClock.now;
     final itemsToAdd = <FoodItem>[];
+    var aiClassifiedCount = 0;
+    var fallbackClassifiedCount = 0;
     for (final e in purchased) {
       final normalizedName = await _normalizeIngredientNameForDisplay(e.name);
-      final classified = await _classifyPurchasedItemWithAi(normalizedName);
+      final classified = useHearthieClassification
+          ? await _classifyPurchasedItemWithAi(normalizedName)
+          : _classifyPurchasedItemWithFallback(normalizedName);
+      if (classified.$3) {
+        aiClassifiedCount++;
+      } else {
+        fallbackClassifiedCount++;
+      }
       final planRef = e.planMealRefs.isEmpty
           ? (_language == 'VIE' ? 'Từ shopping plan' : 'From shopping plan')
           : e.planMealRefs.take(2).join(' · ');
@@ -679,6 +869,11 @@ class AppProvider extends ChangeNotifier {
 
     await _persistShoppingPlan();
     _scheduleAlerts();
+    return AddPurchasedToInventoryResult(
+      addedCount: itemsToAdd.length,
+      aiClassifiedCount: aiClassifiedCount,
+      fallbackClassifiedCount: fallbackClassifiedCount,
+    );
   }
 
   Future<int> importShoppingPlanFromChat(String chatContent) async {
@@ -702,7 +897,9 @@ class AppProvider extends ChangeNotifier {
       final name = (match.group(3) ?? clean).trim();
       if (name.length < 2) continue;
 
-      final unit = unitCandidate.isEmpty ? (_language == 'ENG' ? 'units' : 'đơn vị') : unitCandidate;
+      final unit = unitCandidate.isEmpty
+          ? (_language == 'ENG' ? 'units' : 'đơn vị')
+          : unitCandidate;
       parsed.add(
         ShoppingPlanItem(
           id: _uuid.v4(),
@@ -742,6 +939,64 @@ class AppProvider extends ChangeNotifier {
 
   double _roundQty(double value) {
     return (value * 10).roundToDouble() / 10;
+  }
+
+  double _convertQuantity(double qty, String fromUnit, String toUnit) {
+    final from = fromUnit.toLowerCase().trim();
+    final to = toUnit.toLowerCase().trim();
+    if (from == to) return qty;
+
+    // Weight conversions
+    final isFromG = from == 'g' || from == 'gram' || from == 'grams';
+    final isFromKg = from == 'kg' || from == 'kilogram' || from == 'kilograms' || from == 'kí' || from == 'ki';
+    final isToG = to == 'g' || to == 'gram' || to == 'grams';
+    final isToKg = to == 'kg' || to == 'kilogram' || to == 'kilograms' || to == 'kí' || to == 'ki';
+
+    if (isFromG && isToKg) return qty / 1000.0;
+    if (isFromKg && isToG) return qty * 1000.0;
+
+    // Volume conversions
+    final isFromMl = from == 'ml' || from == 'mililiter' || from == 'mililiters';
+    final isFromL = from == 'l' || from == 'liter' || from == 'liters' || from == 'lít' || from == 'lit';
+    final isToMl = to == 'ml' || to == 'mililiter' || to == 'mililiters';
+    final isToL = to == 'l' || to == 'liter' || to == 'liters' || to == 'lít' || to == 'lit';
+
+    if (isFromMl && isToL) return qty / 1000.0;
+    if (isFromL && isToMl) return qty * 1000.0;
+
+    // If units are not convertible, return original quantity
+    return qty;
+  }
+
+  ({String name, double qty, String unit}) _parseIngredientForShopping(
+    String raw,
+  ) {
+    final clean = raw.trim();
+    if (clean.isEmpty) {
+      return (name: '', qty: 0, unit: _language == 'ENG' ? 'units' : 'đơn vị');
+    }
+
+    final m = RegExp(
+      r'^\s*(\d+(?:[.,]\d+)?)\s*([a-zA-ZÀ-ỹđĐ%]+)?\s+(.+)$',
+    ).firstMatch(clean);
+    if (m == null) {
+      return (
+        name: clean,
+        qty: 1,
+        unit: _language == 'ENG' ? 'portion' : 'phần',
+      );
+    }
+
+    final qty = double.tryParse((m.group(1) ?? '1').replaceAll(',', '.')) ?? 1;
+    final unit = (m.group(2) ?? '').trim().isEmpty
+        ? (_language == 'ENG' ? 'portion' : 'phần')
+        : (m.group(2) ?? '').trim();
+    final name = (m.group(3) ?? clean).trim();
+    return (
+      name: name,
+      qty: qty <= 0 ? 1 : qty,
+      unit: unit,
+    );
   }
 
   Future<void> _generateShoppingListFromPlannedMeals() async {
@@ -799,16 +1054,8 @@ class AppProvider extends ChangeNotifier {
 
     bool hasAny(List<String> keys) => keys.any(s.contains);
 
-    if (hasAny([
-      'thịt',
-      'bò',
-      'heo',
-      'gà',
-      'duck',
-      'beef',
-      'pork',
-      'chicken'
-    ])) {
+    if (hasAny(
+        ['thịt', 'bò', 'heo', 'gà', 'duck', 'beef', 'pork', 'chicken'])) {
       return (FoodCategory.meat, StorageType.freezer);
     }
     if (hasAny(['cá', 'tôm', 'mực', 'hải sản', 'fish', 'shrimp', 'seafood'])) {
@@ -832,7 +1079,14 @@ class AppProvider extends ChangeNotifier {
     return (FoodCategory.other, StorageType.pantry);
   }
 
-  Future<(FoodCategory, StorageType)> _classifyPurchasedItemWithAi(
+  (FoodCategory, StorageType, bool) _classifyPurchasedItemWithFallback(
+    String input,
+  ) {
+    final out = _classifyPurchasedItem(input);
+    return (out.$1, out.$2, false);
+  }
+
+  Future<(FoodCategory, StorageType, bool)> _classifyPurchasedItemWithAi(
     String input,
   ) async {
     final ai = await GroqChatService.instance
@@ -840,9 +1094,9 @@ class AppProvider extends ChangeNotifier {
     if (ai != null) {
       final category = FoodCategoryX.fromString(ai.category);
       final storage = StorageTypeX.fromString(ai.storage);
-      return (category, storage);
+      return (category, storage, true);
     }
-    return _classifyPurchasedItem(input);
+    return _classifyPurchasedItemWithFallback(input);
   }
 
   Future<void> _persistShoppingPlan() async {
@@ -867,6 +1121,56 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Recipes ────────────────────────────────────────────────────────────────
+  Future<void> _persistDailyMealPlans() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'daily_meal_plans',
+      jsonEncode(_dailyMealPlans.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  Future<void> upsertDailyMealPlan({
+    required DateTime date,
+    required String mealSlot,
+    required Recipe recipe,
+  }) async {
+    final key = mealDateKey(date);
+    _dailyMealPlans.removeWhere(
+      (e) => e.dateKey == key && e.mealSlot == mealSlot,
+    );
+    _dailyMealPlans.add(
+      DailyMealPlan(
+        id: _uuid.v4(),
+        dateKey: key,
+        mealSlot: mealSlot,
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        sourceName: recipe.sourceName,
+        ingredients: recipe.customIngredients.isNotEmpty
+            ? recipe.customIngredients
+                .map((e) => '${e.name} (${e.quantityNeeded} ${e.unit})')
+                .toList()
+            : recipe.ingredientsNeeded,
+        createdAtIso: DateTime.now().toIso8601String(),
+      ),
+    );
+    notifyListeners();
+    await _persistDailyMealPlans();
+  }
+
+  Future<void> removeDailyMealPlan(String id) async {
+    _dailyMealPlans.removeWhere((e) => e.id == id);
+    notifyListeners();
+    await _persistDailyMealPlans();
+  }
+
+  Future<void> clearDailyPlansForDate(DateTime date) async {
+    final key = mealDateKey(date);
+    _dailyMealPlans.removeWhere((e) => e.dateKey == key);
+    notifyListeners();
+    await _persistDailyMealPlans();
+  }
+
   Future<void> saveRecipe(Recipe recipe) async {
     final exists = _savedRecipes.any((r) => r.id == recipe.id);
     if (!exists) {
@@ -899,6 +1203,166 @@ class AppProvider extends ChangeNotifier {
   void setRecipeCache(List<Recipe> recipes) {
     _recipeCache = recipes;
     notifyListeners();
+  }
+
+  // ── Custom recipes ──────────────────────────────────────────────────────────
+  Future<void> loadCustomRecipes({bool silent = false}) async {
+    if (!BackendApiService.instance.isConfigured) return;
+    if (!silent) {
+      _isCustomRecipesLoading = true;
+      notifyListeners();
+    }
+    try {
+      final rows = await BackendApiService.instance.getCustomRecipes();
+      _customRecipes = rows.map((r) => Recipe.fromJson(r)).toList();
+    } catch (e, st) {
+      debugPrint('loadCustomRecipes: $e\n$st');
+    } finally {
+      if (!silent) {
+        _isCustomRecipesLoading = false;
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<bool> addCustomRecipe(Recipe recipe) async {
+    _customRecipes.insert(0, recipe);
+    notifyListeners();
+    if (!BackendApiService.instance.isConfigured) return true;
+    try {
+      await BackendApiService.instance.createCustomRecipe(recipe);
+      return true;
+    } catch (e, st) {
+      _customRecipes.removeWhere((r) => r.id == recipe.id);
+      notifyListeners();
+      debugPrint('addCustomRecipe: $e\n$st');
+      return false;
+    }
+  }
+
+  Future<bool> updateCustomRecipe(Recipe recipe) async {
+    final index = _customRecipes.indexWhere((r) => r.id == recipe.id);
+    if (index < 0) return false;
+    final previous = _customRecipes[index];
+    _customRecipes[index] = recipe;
+    notifyListeners();
+    if (!BackendApiService.instance.isConfigured) return true;
+    try {
+      await BackendApiService.instance.updateCustomRecipe(recipe);
+      return true;
+    } catch (e, st) {
+      _customRecipes[index] = previous;
+      notifyListeners();
+      debugPrint('updateCustomRecipe: $e\n$st');
+      return false;
+    }
+  }
+
+  Future<bool> deleteCustomRecipe(String id) async {
+    final index = _customRecipes.indexWhere((r) => r.id == id);
+    if (index < 0) return false;
+    final removed = _customRecipes.removeAt(index);
+    notifyListeners();
+    if (!BackendApiService.instance.isConfigured) return true;
+    try {
+      await BackendApiService.instance.deleteCustomRecipe(id);
+      return true;
+    } catch (e, st) {
+      _customRecipes.insert(index, removed);
+      notifyListeners();
+      debugPrint('deleteCustomRecipe: $e\n$st');
+      return false;
+    }
+  }
+
+  Recipe? findRecipeById(String id) {
+    for (final r in _customRecipes) {
+      if (r.id == id) return r;
+    }
+    for (final r in _savedRecipes) {
+      if (r.id == id) return r;
+    }
+    for (final r in _recipeCache) {
+      if (r.id == id) return r;
+    }
+    return null;
+  }
+
+  FoodItem? _foodItemById(String id) {
+    for (final item in _inventory) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  /// Validates whether linked ingredients are available in inventory.
+  CookRecipeResult previewCookCustomRecipe(Recipe recipe) {
+    if (!recipe.isCustom || recipe.customIngredients.isEmpty) {
+      return const CookRecipeResult(success: false, insufficient: []);
+    }
+
+    final insufficient = <String>[];
+    final unlinked = <String>[];
+
+    for (final ing in recipe.customIngredients) {
+      if (ing.foodItemId.isEmpty) {
+        unlinked.add(ing.name);
+        continue;
+      }
+      final item = _foodItemById(ing.foodItemId);
+      if (item == null) {
+        insufficient.add(ing.name);
+        continue;
+      }
+      final needed = _convertQuantity(ing.quantityNeeded, ing.unit, item.unit);
+      if (item.quantity + 0.0001 < needed) {
+        insufficient.add('${ing.name} (${item.quantity} ${item.unit})');
+      }
+    }
+
+    return CookRecipeResult(
+      success: insufficient.isEmpty,
+      insufficient: insufficient,
+      unlinked: unlinked,
+    );
+  }
+
+  /// Deducts linked inventory items when cooking a custom recipe.
+  Future<CookRecipeResult> cookCustomRecipe(Recipe recipe) async {
+    final preview = previewCookCustomRecipe(recipe);
+    if (!preview.success) return preview;
+
+    final deducted = <String>[];
+    final unlinked = List<String>.from(preview.unlinked);
+    final pending = <({FoodItem item, double qty})>[];
+
+    for (final ing in recipe.customIngredients) {
+      if (ing.foodItemId.isEmpty) continue;
+      final index = _inventory.indexWhere((f) => f.id == ing.foodItemId);
+      if (index < 0) continue;
+      final item = _inventory[index];
+      final needed = _convertQuantity(ing.quantityNeeded, ing.unit, item.unit);
+      pending.add((item: item, qty: needed));
+    }
+
+    for (final entry in pending) {
+      final newQty = _roundQty(entry.item.quantity - entry.qty);
+      deducted.add(entry.item.name);
+      if (newQty <= 0) {
+        await removeFood(entry.item.id);
+      } else {
+        await updateFood(
+          entry.item.id,
+          entry.item.copyWith(quantity: newQty),
+        );
+      }
+    }
+
+    return CookRecipeResult(
+      success: true,
+      deducted: deducted,
+      unlinked: unlinked,
+    );
   }
 
   // ── Settings ───────────────────────────────────────────────────────────────

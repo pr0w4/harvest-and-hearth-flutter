@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/chat_message.dart';
 import '../providers/app_provider.dart';
-import 'shopping_planner_screen.dart';
+import 'meal_calendar_planner_screen.dart';
 import '../theme/app_theme.dart';
 
 /// Full-screen AI chat conversation with the assistant.
@@ -93,7 +93,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     if (added > 0) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const ShoppingPlannerScreen()),
+        MaterialPageRoute(builder: (_) => const MealCalendarPlannerScreen()),
       );
     }
   }

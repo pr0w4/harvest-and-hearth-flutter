@@ -70,3 +70,12 @@ desktop.ini
 
 # === Logs ===
 *.log
+
+# === Local Tooling (project-local SDKs) ===
+.tooling/
+tools/.cache/
+tools/
+
+.cursorignore
+.cursor/
+.agents/

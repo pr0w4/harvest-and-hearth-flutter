@@ -6,6 +6,35 @@ Tất cả thay đổi đáng chú ý của dự án **Harvest & Hearth Flutter*
 
 ---
 
+## [b0.4.17] — 2026-06-22
+
+### Custom Recipes (Công thức của tôi)
+
+- Merge tính năng **công thức tự tạo** từ nhánh `recipe-hong`: tab **Của tôi** trong Công thức với CRUD đầy đủ.
+- Liên kết nguyên liệu với **kho đồ** (autocomplete, kiểm tra đủ/thiếu, badge tồn kho trên danh sách).
+- API backend **`/api/v1/custom-recipes`** (MongoDB collection `custom_recipes`) + client Flutter đồng bộ khi đăng nhập.
+- **Nấu món**: trừ nguyên liệu đã liên kết khỏi kho (dialog xác nhận, rollback khi API lỗi).
+
+### Meal Planner + Custom Recipes
+
+- **Lịch thực đơn** hiển thị section **Công thức của tôi** khi thêm bữa ăn.
+- Món custom trên lịch có nút **Nấu món** trừ kho trực tiếp.
+- Nguyên liệu meal plan lấy từ `customIngredients` để shopping list chính xác hơn.
+
+### Profile, Security & Help
+
+- **About Hearthie**: cập nhật Creator thành `pr0w4 - pr0w4.dev`.
+- **Security Info** và **Help Center** thay placeholder — nội dung đầy đủ theo app (Clerk, MongoDB, AI, thông báo, FAQ).
+- Ghi nhận sản phẩm **đăng ký công nghệ và phát triển bởi Samsung Electronics Co., Ltd.**
+- Footer cả hai màn: **Harvest & Hearth by Samsung Electronics Co. ltd**.
+
+### Build
+
+- Bump version Android: **`1.0.28+29`** (`versionName` **1.0.28**, `versionCode` **29**).
+- APK release: `harvestnhearth-b0.4.17.apk`.
+
+---
+
 ## [b0.4.16] — 2026-05-11
 
 ### Inventory Badges + Planner Traceability

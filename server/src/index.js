@@ -299,6 +299,54 @@ app.delete('/api/v1/saved-recipes/:originalId', clerkAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Custom recipes ────────────────────────────────────────────────────────────
+function customRecipes() {
+  return db.collection('custom_recipes');
+}
+
+app.get('/api/v1/custom-recipes', clerkAuth, async (req, res) => {
+  const uid = req.userId;
+  const rows = await customRecipes()
+    .find({ user_id: uid })
+    .sort({ created_at: -1 })
+    .toArray();
+  res.json(rows.map((r) => ({ ...r, id: r.id })));
+});
+
+app.post('/api/v1/custom-recipes', clerkAuth, async (req, res) => {
+  const uid = req.userId;
+  const body = req.body || {};
+  if (!body.id || !body.name) {
+    return res.status(400).json({ error: 'id and name required' });
+  }
+  const doc = { ...body, user_id: uid, created_at: new Date() };
+  await customRecipes().insertOne(doc);
+  res.status(201).json({ ok: true });
+});
+
+app.put('/api/v1/custom-recipes/:id', clerkAuth, async (req, res) => {
+  const uid = req.userId;
+  const { id } = req.params;
+  const body = req.body || {};
+  const r = await customRecipes().findOne({ id, user_id: uid });
+  if (!r) return res.status(404).json({ error: 'Not found' });
+  await customRecipes().updateOne(
+    { id, user_id: uid },
+    { $set: { ...body, updated_at: new Date() } },
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/v1/custom-recipes/:id', clerkAuth, async (req, res) => {
+  const uid = req.userId;
+  const { id } = req.params;
+  const result = await customRecipes().deleteOne({ id, user_id: uid });
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  res.json({ ok: true });
+});
+
 // ── Notifications log ───────────────────────────────────────────────────────
 app.get('/api/v1/notifications', clerkAuth, async (req, res) => {
   const uid = req.userId;
@@ -398,6 +446,8 @@ async function main() {
   );
   await notifications().createIndex({ userId: 1, createdAtTs: -1 });
   await notifications().createIndex({ userId: 1, isRead: 1, createdAtTs: -1 });
+  await customRecipes().createIndex({ user_id: 1, created_at: -1 });
+  await customRecipes().createIndex({ id: 1, user_id: 1 }, { unique: true });
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Harvest & Hearth API] Server listening on 0.0.0.0:${PORT}`);

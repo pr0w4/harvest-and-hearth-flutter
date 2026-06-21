@@ -9,6 +9,7 @@ import '../services/translate_service.dart';
 import '../models/recipe.dart';
 import 'ai_chat_screen.dart';
 import '../widgets/recipe_card.dart';
+import '../widgets/custom_recipes_tab.dart';
 
 class RecipesScreen extends StatefulWidget {
   const RecipesScreen({super.key});
@@ -26,7 +27,12 @@ class _RecipesScreenState extends State<RecipesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<AppProvider>().loadCustomRecipes();
+      }
+    });
   }
 
   @override
@@ -87,6 +93,8 @@ class _RecipesScreenState extends State<RecipesScreen>
               ),
               child: TabBar(
                 controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
                 dividerColor: Colors.transparent,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelPadding: EdgeInsets.zero,
@@ -118,6 +126,13 @@ class _RecipesScreenState extends State<RecipesScreen>
                       text: t('explore_title'),
                     ),
                   ),
+                  SizedBox(
+                    height: 54,
+                    child: Tab(
+                      icon: const Icon(Icons.edit_note_rounded, size: 18),
+                      text: t('recipes_custom'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -135,6 +150,7 @@ class _RecipesScreenState extends State<RecipesScreen>
           ),
           _SavedRecipesTab(provider: provider),
           _ExploreTab(provider: provider),
+          const CustomRecipesTab(),
         ],
       ),
     );

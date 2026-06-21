@@ -1,3 +1,45 @@
+class RecipeIngredient {
+  final String foodItemId;
+  final String name;
+  final double quantityNeeded;
+  final String unit;
+
+  const RecipeIngredient({
+    required this.foodItemId,
+    required this.name,
+    required this.quantityNeeded,
+    required this.unit,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'foodItemId': foodItemId,
+        'name': name,
+        'quantityNeeded': quantityNeeded,
+        'unit': unit,
+      };
+
+  factory RecipeIngredient.fromJson(Map<String, dynamic> json) =>
+      RecipeIngredient(
+        foodItemId: json['foodItemId'] as String? ?? '',
+        name: json['name'] as String,
+        quantityNeeded: (json['quantityNeeded'] as num).toDouble(),
+        unit: json['unit'] as String,
+      );
+
+  RecipeIngredient copyWith({
+    String? foodItemId,
+    String? name,
+    double? quantityNeeded,
+    String? unit,
+  }) =>
+      RecipeIngredient(
+        foodItemId: foodItemId ?? this.foodItemId,
+        name: name ?? this.name,
+        quantityNeeded: quantityNeeded ?? this.quantityNeeded,
+        unit: unit ?? this.unit,
+      );
+}
+
 enum RecipeDifficulty { easy, medium, hard }
 
 List<String> normalizeRecipeInstructions(List<String> raw) {
@@ -67,6 +109,11 @@ class Recipe {
   final String sourceUrl;
   final String imageKeyword;
   bool isSaved;
+  List<RecipeIngredient> customIngredients;
+
+  bool get isCustom => sourceName == 'Custom';
+
+  int get totalTime => prepTime + cookTime;
 
   Recipe({
     required this.id,
@@ -83,6 +130,7 @@ class Recipe {
     required this.sourceUrl,
     required this.imageKeyword,
     this.isSaved = false,
+    this.customIngredients = const [],
   });
 
   Recipe copyWith({
@@ -100,6 +148,7 @@ class Recipe {
     String? sourceUrl,
     String? imageKeyword,
     bool? isSaved,
+    List<RecipeIngredient>? customIngredients,
   }) {
     return Recipe(
       id: id ?? this.id,
@@ -116,6 +165,7 @@ class Recipe {
       sourceUrl: sourceUrl ?? this.sourceUrl,
       imageKeyword: imageKeyword ?? this.imageKeyword,
       isSaved: isSaved ?? this.isSaved,
+      customIngredients: customIngredients ?? this.customIngredients,
     );
   }
 
@@ -134,6 +184,7 @@ class Recipe {
         'sourceUrl': sourceUrl,
         'imageKeyword': imageKeyword,
         'isSaved': isSaved,
+        'customIngredients': customIngredients.map((e) => e.toJson()).toList(),
       };
 
   factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
@@ -153,5 +204,23 @@ class Recipe {
         sourceUrl: json['sourceUrl'] as String? ?? '',
         imageKeyword: json['imageKeyword'] as String? ?? '',
         isSaved: json['isSaved'] as bool? ?? false,
+        customIngredients: (json['customIngredients'] as List<dynamic>? ?? [])
+            .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
+}
+
+/// Result of attempting to cook a custom recipe (deduct linked inventory).
+class CookRecipeResult {
+  const CookRecipeResult({
+    required this.success,
+    this.insufficient = const [],
+    this.deducted = const [],
+    this.unlinked = const [],
+  });
+
+  final bool success;
+  final List<String> insufficient;
+  final List<String> deducted;
+  final List<String> unlinked;
 }

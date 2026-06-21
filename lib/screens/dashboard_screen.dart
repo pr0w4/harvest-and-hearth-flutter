@@ -5,8 +5,8 @@ import '../providers/app_provider.dart';
 import '../models/food_item.dart';
 import '../screens/ai_chat_screen.dart';
 import '../screens/barcode_scanner_screen.dart';
+import '../screens/meal_calendar_planner_screen.dart';
 import '../screens/recipes_screen.dart';
-import '../screens/shopping_planner_screen.dart';
 import '../widgets/add_food_modal.dart';
 import '../constants/categories.dart';
 import '../theme/app_theme.dart';
@@ -519,6 +519,8 @@ class _QuickActionGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = provider.t;
     final cs = Theme.of(context).colorScheme;
+    final calendarLabel =
+        provider.language == 'VIE' ? 'Lịch thực đơn' : 'Meal Calendar';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -580,22 +582,6 @@ class _QuickActionGrid extends StatelessWidget {
             SizedBox(
               width: itemWidth,
               child: _QuickActionButton(
-                icon: Icons.shopping_bag_outlined,
-                label: t('dashboard_quick_planning'),
-                color: cs.primary,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ShoppingPlannerScreen(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: _QuickActionButton(
                 icon: Icons.restaurant_menu_rounded,
                 label: t('dashboard_ai_suggestion'),
                 color: cs.primary,
@@ -603,6 +589,22 @@ class _QuickActionGrid extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const RecipesScreen()),
+                  );
+                },
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _QuickActionButton(
+                icon: Icons.calendar_month_outlined,
+                label: calendarLabel,
+                color: cs.secondary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MealCalendarPlannerScreen(),
+                    ),
                   );
                 },
               ),

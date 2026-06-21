@@ -297,39 +297,43 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
-        height: 72,
-        child: Row(
-          children: [
-            _BottomNavItem(
-              icon: Icons.dashboard_outlined,
-              selectedIcon: Icons.dashboard,
-              label: t('nav_home'),
-              selected: _currentIndex == 0,
-              onTap: () => setState(() => _currentIndex = 0),
-            ),
-            _BottomNavItem(
-              icon: Icons.kitchen_outlined,
-              selectedIcon: Icons.kitchen,
-              label: t('nav_inventory'),
-              selected: _currentIndex == 1,
-              onTap: () => setState(() => _currentIndex = 1),
-            ),
-            const SizedBox(width: 56),
-            _BottomNavItem(
-              icon: Icons.restaurant_menu_outlined,
-              selectedIcon: Icons.restaurant_menu,
-              label: t('nav_recipes'),
-              selected: _currentIndex == 2,
-              onTap: () => setState(() => _currentIndex = 2),
-            ),
-            _BottomNavItem(
-              icon: Icons.person_outline,
-              selectedIcon: Icons.person,
-              label: t('nav_profile'),
-              selected: _currentIndex == 3,
-              onTap: () => setState(() => _currentIndex = 3),
-            ),
-          ],
+        height: 96,
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              _BottomNavItem(
+                icon: Icons.dashboard_outlined,
+                selectedIcon: Icons.dashboard,
+                label: t('nav_home'),
+                selected: _currentIndex == 0,
+                onTap: () => setState(() => _currentIndex = 0),
+              ),
+              _BottomNavItem(
+                icon: Icons.kitchen_outlined,
+                selectedIcon: Icons.kitchen,
+                label: t('nav_inventory'),
+                selected: _currentIndex == 1,
+                onTap: () => setState(() => _currentIndex = 1),
+              ),
+              const SizedBox(width: 56),
+              _BottomNavItem(
+                icon: Icons.restaurant_menu_outlined,
+                selectedIcon: Icons.restaurant_menu,
+                label: t('nav_recipes'),
+                selected: _currentIndex == 2,
+                onTap: () => setState(() => _currentIndex = 2),
+              ),
+              _BottomNavItem(
+                icon: Icons.person_outline,
+                selectedIcon: Icons.person,
+                label: t('nav_profile'),
+                selected: _currentIndex == 3,
+                onTap: () => setState(() => _currentIndex = 3),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -365,15 +369,20 @@ class _BottomNavItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(selected ? selectedIcon : icon, color: color, size: 22),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              const SizedBox(height: 4),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
                 ),
               ),
             ],

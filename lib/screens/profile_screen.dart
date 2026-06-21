@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../constants/categories.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
+import 'help_center_screen.dart';
 import 'notifications_screen.dart';
+import 'security_info_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -181,24 +183,28 @@ class ProfileScreen extends StatelessWidget {
                   leading: const Icon(Icons.security_outlined),
                   title: Text(t('profile_security_info')),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _openInfoPage(
-                    context: context,
-                    title: t('profile_security_info'),
-                    message: t('profile_coming_soon'),
-                    icon: Icons.security_outlined,
-                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SecurityInfoScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
                   leading: const Icon(Icons.help_outline_rounded),
                   title: Text(t('profile_help_info')),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => _openInfoPage(
-                    context: context,
-                    title: t('profile_help_info'),
-                    message: t('profile_coming_soon'),
-                    icon: Icons.help_outline_rounded,
-                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const HelpCenterScreen(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -305,8 +311,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   _AboutRow(
                     title: t('profile_hearthie_creator'),
-                    content:
-                        'Mật vụ P (Pr0why) · CafeToolbox.app',
+                    content: 'pr0w4 - pr0w4.dev',
                   ),
                 ],
               ),
@@ -356,24 +361,6 @@ class ProfileScreen extends StatelessWidget {
             child: Text(t('profile_logout')),
           ),
         ],
-      ),
-    );
-  }
-
-  void _openInfoPage({
-    required BuildContext context,
-    required String title,
-    required String message,
-    required IconData icon,
-  }) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _InfoScreen(
-          title: title,
-          message: message,
-          icon: icon,
-        ),
       ),
     );
   }
@@ -473,53 +460,6 @@ class _InventoryDefaultsScreen extends StatelessWidget {
             ),
           );
         }).toList(),
-      ),
-    );
-  }
-}
-
-class _InfoScreen extends StatelessWidget {
-  const _InfoScreen({
-    required this.title,
-    required this.message,
-    required this.icon,
-  });
-
-  final String title;
-  final String message;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 44, color: cs.primary),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
